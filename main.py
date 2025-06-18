@@ -21,7 +21,6 @@ user_likes = {}
 dp["waiting_for_search_input"] = False
 dp["waiting_for_username"] = False
 
-
 async def set_main_menu():
     await bot.set_my_commands([
         BotCommand(command="/start", description="Start bot"),
@@ -29,11 +28,9 @@ async def set_main_menu():
         BotCommand(command="/likes", description="Get user's liked tracks")
     ])
 
-
 def clean_filename(title):
     title = title.replace('\\', '⧵')
     return re.sub(r'[/:*?"<>|]', '', title)[:64]
-
 
 async def download_track(url):
     cmd = [
@@ -50,7 +47,6 @@ async def download_track(url):
     )
     stdout, _ = await proc.communicate()
     return stdout
-
 
 async def yt_search(query):
     cmd = [
@@ -75,7 +71,6 @@ async def yt_search(query):
         if i + 2 < len(lines)
     ]
 
-
 async def get_user_likes(username: str):
     cmd = [
         'yt-dlp',
@@ -94,7 +89,6 @@ async def get_user_likes(username: str):
     stdout, _ = await proc.communicate()
     lines = stdout.decode().splitlines()
     return [(lines[i], lines[i + 1]) for i in range(0, len(lines), 2) if i + 1 < len(lines)]
-
 
 def build_likes_keyboard(tracks, page=0, per_page=10):
     builder = InlineKeyboardBuilder()
@@ -122,23 +116,19 @@ def build_likes_keyboard(tracks, page=0, per_page=10):
 
     return builder.as_markup()
 
-
 @dp.message(Command(commands=["start"]))
 async def cmd_start(message: types.Message):
     await message.answer("**🔍 Hi! Use /search to find music or /likes to view likes.**")
-
 
 @dp.message(Command(commands=["search"]))
 async def search_command_handler(message: types.Message):
     dp["waiting_for_search_input"] = True
     await message.answer("**🔎 Enter song name to search on SoundCloud:**")
 
-
 @dp.message(Command(commands=["likes"]))
 async def likes_handler(message: types.Message):
     dp["waiting_for_username"] = True
     await message.answer("**👤 Enter SoundCloud username to view likes:**")
-
 
 @dp.message(F.text & ~F.command)
 async def handle_text_input(message: types.Message):
@@ -148,7 +138,6 @@ async def handle_text_input(message: types.Message):
     elif dp.get("waiting_for_username"):
         dp["waiting_for_username"] = False
         await process_likes(message)
-
 
 async def process_search(message: types.Message):
     query = message.text.strip()
@@ -206,7 +195,6 @@ async def process_likes(message: types.Message):
     except Exception as e:
         await message.answer(f"**❌ Error getting likes: {str(e)}**")
 
-
 @dp.callback_query(F.data.startswith("likes_"))
 async def handle_likes_pagination(call: types.CallbackQuery):
     data = call.data.split("_")
@@ -233,7 +221,6 @@ async def handle_likes_pagination(call: types.CallbackQuery):
         reply_markup=markup
     )
     await call.answer()
-
 
 @dp.callback_query(F.data.startswith("download_"))
 async def handle_download_from_likes(call: types.CallbackQuery):
@@ -268,7 +255,6 @@ async def handle_download_from_likes(call: types.CallbackQuery):
     finally:
         await call.answer()
 
-
 @dp.callback_query(F.data)
 async def send_audio(call: types.CallbackQuery):
     idx = int(call.data)
@@ -302,11 +288,9 @@ async def send_audio(call: types.CallbackQuery):
     finally:
         await call.answer()
 
-
 async def main():
     await set_main_menu()
     await dp.start_polling(bot)
-
 
 if __name__ == "__main__":
     asyncio.run(main())
