@@ -26,6 +26,8 @@ async def set_main_menu():
         BotCommand(command="/start", description="Start bot"),
         BotCommand(command="/search", description="Search on SoundCloud"),
         BotCommand(command="/likes", description="Get user's liked tracks")
+        #test
+        #BotCommand(command="/spotify, description="Switch to spotify")
     ])
 
 def clean_filename(title):
