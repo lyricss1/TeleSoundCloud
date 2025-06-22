@@ -8,7 +8,7 @@ from aiogram import F
 from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 
-API_TOKEN = "UR_TGR_BOT_TOKEN"
+API_TOKEN = "ur_token"
 
 bot = Bot(
     token=API_TOKEN,
@@ -21,13 +21,16 @@ user_likes = {}
 dp["waiting_for_search_input"] = False
 dp["waiting_for_username"] = False
 
+#Markdown escaping function
+def escape_markdown(text):
+    escape_chars = r"\\*_`[]()~>#+-=|{}.!<>"
+    return ''.join(f"\\{c}" if c in escape_chars else c for c in text)
+
 async def set_main_menu():
     await bot.set_my_commands([
         BotCommand(command="/start", description="Start bot"),
         BotCommand(command="/search", description="Search on SoundCloud"),
         BotCommand(command="/likes", description="Get user's liked tracks")
-        #test
-        #BotCommand(command="/spotify, description="Switch to spotify")
     ])
 
 def clean_filename(title):
@@ -94,28 +97,22 @@ async def get_user_likes(username: str):
 
 def build_likes_keyboard(tracks, page=0, per_page=10):
     builder = InlineKeyboardBuilder()
-
     start_idx = page * per_page
     end_idx = min(start_idx + per_page, len(tracks))
-
     for idx in range(start_idx, end_idx):
         title, url = tracks[idx]
         builder.button(
             text=f"{idx + 1}. {title[:30]}",
             callback_data=f"download_{idx}"
         )
-
     builder.adjust(1)
-
     pagination_row = []
     if page > 0:
         pagination_row.append(InlineKeyboardButton(text="⬅️ Back", callback_data=f"likes_prev_{page}"))
     if end_idx < len(tracks):
         pagination_row.append(InlineKeyboardButton(text="Next ➡️", callback_data=f"likes_next_{page}"))
-
     if pagination_row:
         builder.row(*pagination_row)
-
     return builder.as_markup()
 
 @dp.message(Command(commands=["start"]))
@@ -143,24 +140,18 @@ async def handle_text_input(message: types.Message):
 
 async def process_search(message: types.Message):
     query = message.text.strip()
-
     if not query:
         await message.answer("**❌ Please enter a valid query.**")
         return
-
     await message.answer("**⌛ Searching...**")
     results = await yt_search(query)
-
     if not results:
         await message.answer("**❌ Nothing found.**")
         return
-
     search_results[message.chat.id] = results
     builder = InlineKeyboardBuilder()
-
     for i, (_, title, _) in enumerate(results):
         builder.button(text=f"{i + 1}. {title[:50]}", callback_data=str(i))
-
     builder.adjust(1)
     await message.answer("**🎵 Results:**", reply_markup=builder.as_markup())
 
@@ -169,25 +160,20 @@ def easter_egg():
 
 async def process_likes(message: types.Message):
     username = message.text.strip()
-
     if not username:
         await message.answer("**❌ Please enter a valid username.**")
         return
-
     await message.answer(f"**⌛ Getting likes for {username}...**")
     try:
         liked_tracks = await get_user_likes(username)
-
         if not liked_tracks:
             await message.answer("**❌ No likes found or user doesn't exist.**")
             return
-
         user_likes[message.chat.id] = {
             'username': username,
             'tracks': liked_tracks,
             'page': 0
         }
-
         markup = build_likes_keyboard(liked_tracks)
         total_tracks = len(liked_tracks)
         await message.answer(
@@ -202,53 +188,45 @@ async def handle_likes_pagination(call: types.CallbackQuery):
     data = call.data.split("_")
     direction = data[1]
     current_page = int(data[2])
-
     user_data = user_likes.get(call.message.chat.id)
     if not user_data:
         await call.answer("Session expired. Please use /likes again.")
         return
-
     tracks = user_data['tracks']
     new_page = current_page - 1 if direction == "prev" else current_page + 1
-
     user_data['page'] = new_page
     user_likes[call.message.chat.id] = user_data
-
     markup = build_likes_keyboard(tracks, new_page)
     start_idx = new_page * 10 + 1
     end_idx = min(start_idx + 9, len(tracks))
-
     await call.message.edit_text(
         f"**❤️ {user_data['username']}'s likes ({start_idx}-{end_idx} of {len(tracks)}):**",
         reply_markup=markup
     )
     await call.answer()
 
+
+#title markdn
 @dp.callback_query(F.data.startswith("download_"))
 async def handle_download_from_likes(call: types.CallbackQuery):
     idx = int(call.data.split("_")[1])
     user_data = user_likes.get(call.message.chat.id)
-
     if not user_data or idx >= len(user_data['tracks']):
         await call.answer("❌ Error: please try again.")
         return
-
     title, url = user_data['tracks'][idx]
-
-    downloading_msg = await call.message.answer(f"**⬇️ Downloading: {title}**")
-
+    safe_title = escape_markdown(title)
+    downloading_msg = await call.message.answer(f"**⬇️ Downloading: {safe_title}**")
     try:
         audio_data = await download_track(url)
         if not audio_data:
             await downloading_msg.edit_text("**❌ Download error.**")
             return
-
         safe_filename = clean_filename(title) + '.mp3'
         audio_file = BufferedInputFile(audio_data, filename=safe_filename)
-
         await call.message.answer_audio(
             audio_file,
-            caption=f"**🎧 {title}**",
+            caption=f"**🎧 {safe_title}**",
             title=title[:64]
         )
         await downloading_msg.delete()
@@ -257,31 +235,27 @@ async def handle_download_from_likes(call: types.CallbackQuery):
     finally:
         await call.answer()
 
+#title markdn2
 @dp.callback_query(F.data)
 async def send_audio(call: types.CallbackQuery):
     idx = int(call.data)
     results = search_results.get(call.message.chat.id)
-
     if not results or idx >= len(results):
         await call.answer("❌ Error: please try again.")
         return
-
     vid, title, url = results[idx]
-
-    downloading_msg = await call.message.answer(f"**⬇️ Downloading: {title}**")
-
+    safe_title = escape_markdown(title)
+    downloading_msg = await call.message.answer(f"**⬇️ Downloading: {safe_title}**")
     try:
         audio_data = await download_track(url)
         if not audio_data:
             await downloading_msg.edit_text("**❌ Download error.**")
             return
-
         safe_filename = clean_filename(title) + '.mp3'
         audio_file = BufferedInputFile(audio_data, filename=safe_filename)
-
         await call.message.answer_audio(
             audio_file,
-            caption=f"**🎧 {title}**",
+            caption=f"**🎧 {safe_title}**",
             title=title[:64]
         )
         await downloading_msg.delete()
