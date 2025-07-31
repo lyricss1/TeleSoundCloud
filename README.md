@@ -25,6 +25,7 @@ A Telegram bot built with Aiogram that lets users search for tracks on SoundClou
 ## Installation
 
 1. Clone the repository and navigate into the project folder
+
 `git clone https://github.com/yourusername/yourbot.git
 cd yourbot`
 
