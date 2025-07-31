@@ -30,9 +30,11 @@ A Telegram bot built with Aiogram that lets users search for tracks on SoundClou
 cd yourbot`
 
 2. Install the required Python dependencies
+
 `pip install -r requirements.txt`
 
 3. Open `main.py` and add your Telegram bot API token in the `API_TOKEN` variable.
 
 4. Run the bot:
+
 `python main.py`
